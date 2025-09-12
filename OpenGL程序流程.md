@@ -1,7 +1,7 @@
 # 🖥️ OpenGL 渲染流程
 
 
-##1. 创建窗口 & 上下文
+## 1. 创建窗口 & 上下文
 
 Window & OpenGL Context
 
@@ -11,7 +11,7 @@ Window & OpenGL Context
 
 
 
-2. 编写 Shader（GLSL）
+## 2. 编写 Shader（GLSL）
 
 Shader (GLSL)
 
@@ -24,7 +24,7 @@ Shader (GLSL)
 
 
 
-3. 编译 & 链接 Shader → Shader Program
+## 3. 编译 & 链接 Shader → Shader Program
 
 Shader Program
 
@@ -32,7 +32,7 @@ Shader Program
 
 
 
-4. 创建顶点数据（VBO）
+## 4. 创建顶点数据（VBO）
 
 Vertex Buffer Object (VBO)
 
@@ -42,7 +42,7 @@ Vertex Buffer Object (VBO)
 
 
 
-5. 创建顶点数组对象（VAO）并绑定 VBO
+## 5. 创建顶点数组对象（VAO）并绑定 VBO
 
 Vertex Array Object (VAO)
 
@@ -52,7 +52,7 @@ Vertex Array Object (VAO)
 
 
 
-6. 传递 Uniform 数据
+## 6. 传递 Uniform 数据
 
 Uniforms
 
@@ -62,7 +62,7 @@ Uniforms
 
 
 
-7. 渲染循环（每帧执行）
+## 7. 渲染循环（每帧执行）
 
 Render Loop / Frame Loop
 
@@ -74,7 +74,7 @@ Render Loop / Frame Loop
 
 
 
-8. GPU 渲染流程
+## 8. GPU 渲染流程
 
 GPU Pipeline
 
@@ -93,7 +93,7 @@ GPU Pipeline
 
 
 
-9. 显示到窗口
+## 9. 显示到窗口
 
 Framebuffer → Screen / Swap Buffers
 
@@ -107,7 +107,7 @@ GPU 输出帧缓冲内容到屏幕
 
 ---
 
-🔹 核心概念对照（英文全称）
+# 🔹 核心概念对照（英文全称）
 
 对象 / 阶段	英文全称	作用
 
@@ -127,10 +127,9 @@ Uniform	Uniform Variable	给 Shader 传入每帧参数（时间、分辨率、�
 
 渲染循环	Render Loop / Frame Loop	每帧执行渲染流程，更新 Uniform 并绘制
 
-示例
+## 示例
 
 ```cpp
-// main.cpp
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <iostream>

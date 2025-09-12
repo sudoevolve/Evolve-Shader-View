@@ -1,4 +1,4 @@
-🧾 Shadertoy / GLSL 常见缩写对照表
+#🧾 Shadertoy / GLSL 常见缩写对照表
 
 🎨 基础数据类型
 

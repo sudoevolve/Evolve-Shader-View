@@ -33,7 +33,7 @@ iTime → 当前时间（秒），用来做动画
 
 
 最基本的程序：
-
+```gsls
 void mainImage(out vec4 fragColor, in vec2 fragCoord) {
     // 归一化像素坐标 (-1 ~ 1)
     vec2 uv = (fragCoord - 0.5 * iResolution.xy) / iResolution.y;
@@ -41,7 +41,7 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
     // 输出颜色
     fragColor = vec4(uv, 0.0, 1.0); 
 }
-
+```gsls
 👉 这个代码会画一个从蓝到红的渐变背景。
 
 

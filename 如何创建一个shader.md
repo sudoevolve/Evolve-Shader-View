@@ -1,5 +1,3 @@
----
-
 🌌 Shadertoy 创作入门文档
 
 >帮助你从「一个黑屏」到「能做出属于自己的图形创意」。
@@ -41,7 +39,7 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
     // 输出颜色
     fragColor = vec4(uv, 0.0, 1.0); 
 }
-```gsls
+
 👉 这个代码会画一个从蓝到红的渐变背景。
 
 
@@ -52,7 +50,7 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
 要画几何图形，我们需要 距离函数（SDF）。
 
 圆
-
+```gsls
 float circle(vec2 p, float r) {
     return length(p) - r; // 到圆心的距离 - 半径
 }
@@ -65,7 +63,7 @@ float box(vec2 p, vec2 b) {
 }
 
 在 mainImage 里判断：
-
+```gsls
 float d = circle(uv, 0.3);
 vec3 col = d < 0.0 ? vec3(1.0, 0.0, 0.0) : vec3(0.0);
 fragColor = vec4(col, 1.0);
@@ -78,7 +76,7 @@ fragColor = vec4(col, 1.0);
 4. 动画
 
 使用 iTime 让图形动起来：
-
+```gsls
 float d = circle(uv, 0.2 + 0.1*sin(iTime));
 
 👉 圆会像心脏一样“跳动”。
@@ -125,7 +123,7 @@ float d = min(d1, d2);
 
 
 简单球体：
-
+```gsls
 float sphere(vec3 p, float r) {
     return length(p) - r;
 }
@@ -143,7 +141,7 @@ float sphere(vec3 p, float r) {
 
 
 例子：发光圆
-
+```gsls
 float d = circle(uv, 0.3);
 float glow = exp(-10.0*abs(d));
 vec3 col = vec3(0.0, 0.5, 1.0) * glow;

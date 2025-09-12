@@ -1,6 +1,7 @@
 #🖥️ OpenGL 渲染流程
 
-1. 创建窗口 & 上下文
+
+##1. 创建窗口 & 上下文
 
 Window & OpenGL Context
 

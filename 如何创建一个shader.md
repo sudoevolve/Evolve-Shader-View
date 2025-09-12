@@ -31,7 +31,7 @@ iTime → 当前时间（秒），用来做动画
 
 
 最基本的程序：
-```gsls
+```glsl
 void mainImage(out vec4 fragColor, in vec2 fragCoord) {
     // 归一化像素坐标 (-1 ~ 1)
     vec2 uv = (fragCoord - 0.5 * iResolution.xy) / iResolution.y;
@@ -42,7 +42,7 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
 
 👉 这个代码会画一个从蓝到红的渐变背景。
 
-
+```
 ---
 
 3. 从点到形状
@@ -50,24 +50,24 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
 要画几何图形，我们需要 距离函数（SDF）。
 
 圆
-```gsls
+```glsl
 float circle(vec2 p, float r) {
     return length(p) - r; // 到圆心的距离 - 半径
 }
-
+```
 正方形
-
+```glsl
 float box(vec2 p, vec2 b) {
     vec2 q = abs(p) - b;
     return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0);
 }
-
+```
 在 mainImage 里判断：
 ```gsls
 float d = circle(uv, 0.3);
 vec3 col = d < 0.0 ? vec3(1.0, 0.0, 0.0) : vec3(0.0);
 fragColor = vec4(col, 1.0);
-
+```
 👉 显示一个红色的圆。
 
 
@@ -76,9 +76,9 @@ fragColor = vec4(col, 1.0);
 4. 动画
 
 使用 iTime 让图形动起来：
-```gsls
+```glsl
 float d = circle(uv, 0.2 + 0.1*sin(iTime));
-
+```
 👉 圆会像心脏一样“跳动”。
 
 
@@ -96,11 +96,11 @@ float d = circle(uv, 0.2 + 0.1*sin(iTime));
 
 
 例子：圆和方形的结合：
-
+```glsl
 float d1 = circle(uv, 0.3);
 float d2 = box(uv, vec2(0.2));
 float d = min(d1, d2);
-
+```
 
 ---
 
@@ -123,11 +123,11 @@ float d = min(d1, d2);
 
 
 简单球体：
-```gsls
+```glsl
 float sphere(vec3 p, float r) {
     return length(p) - r;
 }
-
+```
 
 ---
 
@@ -141,12 +141,12 @@ float sphere(vec3 p, float r) {
 
 
 例子：发光圆
-```gsls
+```glsl
 float d = circle(uv, 0.3);
 float glow = exp(-10.0*abs(d));
 vec3 col = vec3(0.0, 0.5, 1.0) * glow;
 fragColor = vec4(col, 1.0);
-
+```
 
 ---
 

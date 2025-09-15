@@ -12,13 +12,13 @@ Supports both shaders with textures (`iChannel0`) and shaders without textures. 
 
 ---
 
-# **Multi-pass Shader Renderer 使用文档**
+# **使用文档**
 
 ---
 
 ## 📌 简介
 
-`Multi-pass Shader Renderer` 是一个基于 OpenGL 的多通道着色器渲染程序，灵感来源于 [Shadertoy](https://www.shadertoy.com/)。它支持加载多个 `.frag` 片段着色器文件，并通过交互式配置实现复杂的多通道渲染（如后处理、反馈、图像输入等）。
+``Evolve Shader Viewer是一个基于 OpenGL 的多通道着色器渲染程序，灵感来源于 [Shadertoy](https://www.shadertoy.com/)。它支持加载多个 `.frag` 片段着色器文件，并通过交互式配置实现复杂的多通道渲染（如后处理、反馈、图像输入等）。
 
 该程序允许用户：
 - 自定义每个着色器对其他缓冲区或图像的依赖。
@@ -82,12 +82,6 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
 
 ### 步骤 2：编译并运行程序
 
-使用 CMake 或手动编译：
-
-```bash
-g++ main.cpp -o renderer -lGL -lglfw -lpthread -ldl -lX11 -lm -std=c++17
-./renderer
-```
 
 > 在 Windows 上可使用 Visual Studio 或 MinGW 配合相应库进行构建。
 
@@ -246,18 +240,6 @@ FPS 显示在窗口标题栏中（每秒刷新一次）。
 
 ---
 
-## 🧹 资源管理
-
-程序自动管理以下资源：
-- 所有着色器程序（`glDeleteProgram`）
-- 所有纹理与 FBO
-- VAO/VBO
-- 图像缓存（避免重复加载）
-
-关闭程序时自动清理，无内存泄漏。
-
----
-
 ## 📎 示例项目结构
 
 ```
@@ -282,17 +264,6 @@ demo_project/
 - `buffer2`: `iChannel0 = buffer0`, `iChannel1 = buffer1`
 
 即可实现复合视觉效果。
-
----
-
-## 📚 开发者扩展建议
-
-你可以在此基础上添加以下功能：
-- 键盘快捷键切换 preset
-- JSON 配置文件保存/加载 channel 映射
-- 支持 `#include` 导入公共函数库
-- 添加音频频谱模拟输入（`iChannel3` 作为波形数据）
-- 支持视频流作为 `iChannel` 输入（通过 FFmpeg 解码）
 
 ---
 

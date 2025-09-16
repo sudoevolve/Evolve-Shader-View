@@ -7,8 +7,8 @@ Supports both shaders with textures (`iChannel0`) and shaders without textures. 
 
 
 ## Example Screenshot
-
-![Example Shader](screenshot.png)
+![Example Shader](screenshot2.png)
+![Example Shader](screenshot1.png)
 
 ---
 

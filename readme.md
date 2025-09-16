@@ -287,6 +287,4 @@ demo_project/
 
 ---
 
-🎉 现在就开始编写你的多通道视觉艺术吧！  
-
 👉 **Happy Coding & Evolving Shaders!**

@@ -1,4 +1,4 @@
-﻿// main.cpp - Multi-pass Shader Renderer with Full RAII
+﻿// main.cpp - Multi-pass Shader Renderer with Full RAII and Cross-Pass iChannel Support
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -154,24 +154,31 @@ public:
         return *this;
     }
     ~Framebuffer() { destroy(); }
+
+    // Create FBO with high-precision floating-point texture for accurate feedback
     bool create(int w, int h) {
         destroy();
         glGenFramebuffers(1, &fbo);
         glBindFramebuffer(GL_FRAMEBUFFER, fbo);
         glGenTextures(1, &colorTex.id);
         glBindTexture(GL_TEXTURE_2D, colorTex.id);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, w, h, 0, GL_RGBA, GL_HALF_FLOAT, nullptr);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+        // Use RGBA32F for full precision (required by texelFetch in Shadertoy-style code)
+        // And use NEAREST filtering because we are sampling via texelFetch, not texture()
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, w, h, 0, GL_RGBA, GL_FLOAT, nullptr);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
         colorTex.width = w;
         colorTex.height = h;
+
         glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, colorTex.id, 0);
         bool complete = (glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE);
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
         return complete;
     }
+
     void bind() const { if (fbo) glBindFramebuffer(GL_FRAMEBUFFER, fbo); }
     static void unbind() { glBindFramebuffer(GL_FRAMEBUFFER, 0); }
     void destroy() { if (fbo) { glDeleteFramebuffers(1, &fbo); fbo = 0; } }
@@ -242,6 +249,7 @@ static GLuint CreateProgram(const char* vertSrc, const char* fragSrc) {
     return prog;
 }
 
+// Wrap a Shadertoy-like fragment shader with standard OpenGL boilerplate
 std::string WrapShadertoyShader(const std::string& code) {
     std::string prelude = R"GLSL(
 #version 330 core
@@ -267,6 +275,7 @@ void main() {
     return prelude + code + postlude;
 }
 
+// Load shader source from file
 std::string LoadShaderFile(const std::string& path) {
     std::ifstream file(path);
     if (!file.is_open()) {
@@ -278,8 +287,10 @@ std::string LoadShaderFile(const std::string& path) {
     return ss.str();
 }
 
+// Global texture cache to avoid reloading same image multiple times
 std::map<std::string, Texture> g_globalTextureCache;
 
+// Get or load a texture from disk
 Texture* GetTextureForPath(const std::string& path) {
     auto it = g_globalTextureCache.find(path);
     if (it != g_globalTextureCache.end()) return &it->second;
@@ -296,6 +307,7 @@ Texture* GetTextureForPath(const std::string& path) {
     }
 }
 
+// Scan 'iChannel' folder for global images
 std::vector<fs::path> ScanGlobalImages() {
     std::vector<fs::path> images;
     std::vector<std::string> extensions = { ".png", ".jpg", ".jpeg" };
@@ -315,27 +327,38 @@ std::vector<fs::path> ScanGlobalImages() {
     return images;
 }
 
+// Define input types for iChannel: none, image, or buffer (including self-feedback)
 struct ChannelInput {
     enum Type { NONE, IMAGE_GLOBAL, BUFFER } type = NONE;
-    int bufferIndex = -1;
-    int imageIndex = -1;
+    int bufferIndex = -1;  // index of source buffer (for BUFFER type)
+    int imageIndex = -1;   // index in global image list
 };
 
+// Mouse state
 double g_mouseX = 0.0, g_mouseY = 0.0;
 int g_mouseDown = 0;
+
+// Window size
 int g_winWidth = 1280, g_winHeight = 720;
+
+// Start time for iTime
 std::chrono::steady_clock::time_point g_start;
+
+// Global frame counter (shared across all passes)
 int g_frame = 0;
 
+// GLFW cursor callback
 void cursorPosCallback(GLFWwindow* window, double x, double y) {
     g_mouseX = x;
     g_mouseY = y;
 }
 
+// GLFW mouse button callback
 void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
     g_mouseDown = (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS) ? 1 : 0;
 }
 
+// Handle window resize
 void framebufferSizeCallback(GLFWwindow* window, int w, int h) {
     g_winWidth = w;
     g_winHeight = h;
@@ -344,6 +367,7 @@ void framebufferSizeCallback(GLFWwindow* window, int w, int h) {
     if (pFbos) for (auto& fbo : *pFbos) fbo.create(w, h);
 }
 
+// Simple fullscreen quad vertex shader
 const char* vertShaderSrc = R"GLSL(
 #version 330 core
 layout(location=0) in vec2 aPos;
@@ -355,6 +379,7 @@ void main() {
 }
 )GLSL";
 
+// Scan 'frag' directory for .frag files, sorted by number prefix
 std::vector<std::string> ScanShaderFiles() {
     std::vector<std::pair<int, fs::path>> entries;
     for (const auto& entry : fs::directory_iterator("frag")) {
@@ -373,6 +398,7 @@ std::vector<std::string> ScanShaderFiles() {
     return result;
 }
 
+// Interactive setup for iChannel connections
 std::vector<std::array<ChannelInput, 4>> ConfigureChannelsInteractively(
     const std::vector<std::string>& files,
     const std::vector<fs::path>& globalImages) {
@@ -413,12 +439,11 @@ std::vector<std::array<ChannelInput, 4>> ConfigureChannelsInteractively(
                 std::cout << "\niChannel" << c << " source:\n";
                 std::cout << "  1: none\n";
                 std::cout << "  2: self (feedback)\n";
-                if (idx > 0) {
-                    for (int src = 0; src < idx; ++src) {
-                        std::cout << "  " << (src + 3) << ": buffer" << src << "\n";
-                    }
+                for (int b = 0; b < N; ++b) {
+                    if (b == idx) continue;
+                    std::cout << "  " << (b + 3) << ": buffer" << b << "\n";
                 }
-                int base = idx > 0 ? idx + 3 : 3;
+                int base = N + 3;
                 if (!globalImages.empty()) {
                     std::cout << "  " << base << "+: image (see list below)\n";
                 }
@@ -428,18 +453,36 @@ std::vector<std::array<ChannelInput, 4>> ConfigureChannelsInteractively(
                 try { choice = std::stoi(line); }
                 catch (...) { choice = -1; }
                 ChannelInput input;
-                if (choice == 1) input.type = ChannelInput::NONE;
-                else if (choice == 2) { input.type = ChannelInput::BUFFER; input.bufferIndex = idx; }
-                else if (idx > 0 && choice >= 3 && choice <= idx + 2) { input.type = ChannelInput::BUFFER; input.bufferIndex = choice - 3; }
+                if (choice == 1) {
+                    input.type = ChannelInput::NONE;
+                }
+                else if (choice == 2) {
+                    input.type = ChannelInput::BUFFER;
+                    input.bufferIndex = idx; // self-reference
+                }
+                else if (choice >= 3 && choice < base) {
+                    int src = choice - 3;
+                    if (src >= 0 && src < N && src != idx) {
+                        input.type = ChannelInput::BUFFER;
+                        input.bufferIndex = src;
+                    }
+                    else {
+                        std::cout << " Invalid buffer index. Skipping.\n"; continue;
+                    }
+                }
                 else if (!globalImages.empty() && choice >= base) {
                     int imgChoice = choice - base;
                     if (imgChoice >= 0 && imgChoice < (int)globalImages.size()) {
                         input.type = ChannelInput::IMAGE_GLOBAL;
                         input.imageIndex = imgChoice;
                     }
-                    else { std::cout << " Invalid image index. Skipping.\n"; continue; }
+                    else {
+                        std::cout << " Invalid image index. Skipping.\n"; continue;
+                    }
                 }
-                else { std::cout << " Invalid choice. Skipping.\n"; continue; }
+                else {
+                    std::cout << " Invalid choice. Skipping.\n"; continue;
+                }
                 configs[idx][c] = input;
                 std::cout << " Set iChannel" << c << " = ";
                 if (input.type == ChannelInput::NONE) std::cout << "none\n";
@@ -458,15 +501,23 @@ std::vector<std::array<ChannelInput, 4>> ConfigureChannelsInteractively(
         std::getline(std::cin, line);
         if (line.empty()) break;
     }
+
+    // Auto-connect unused passes to previous buffer
     for (int i = 1; i < N; ++i) {
         bool empty = true;
-        for (int c = 0; c < 4; ++c) if (configs[i][c].type != ChannelInput::NONE) { empty = false; break; }
-        if (empty) {
+        for (int c = 0; c < 4; ++c) {
+            if (configs[i][c].type != ChannelInput::NONE) {
+                empty = false;
+                break;
+            }
+        }
+        if (empty && i > 0) {
             configs[i][0].type = ChannelInput::BUFFER;
             configs[i][0].bufferIndex = i - 1;
             std::cout << "[AUTO] Auto-connected buffer" << i << " <- buffer" << i - 1 << "\n";
         }
     }
+
     return configs;
 }
 
@@ -530,8 +581,10 @@ int main() {
     };
     VertexBuffer vbo(quad, sizeof(quad));
     vao.bind(); vbo.bind();
-    glEnableVertexAttribArray(0); glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
-    glEnableVertexAttribArray(1); glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
     VertexArray::unbind();
 
     std::vector<GLProgram> programs;
@@ -543,11 +596,29 @@ int main() {
     }
     if (programs.empty()) return -1;
 
-    std::vector<Framebuffer> fbos(programs.size() - 1);
-    for (auto& fbo : fbos) if (!fbo.create(g_winWidth, g_winHeight)) return -1;
+    std::vector<Framebuffer> fbos(programs.size());
+    for (auto& fbo : fbos) {
+        if (!fbo.create(g_winWidth, g_winHeight)) return -1;
+    }
     glfwSetWindowUserPointer(window, &fbos);
 
-    Texture emptyTex; emptyTex.createEmpty();
+    // Store previous frame's output for feedback (stable texture IDs)
+    std::vector<Texture> prevFrameTextures(programs.size());
+    for (auto& tex : prevFrameTextures) {
+        glGenTextures(1, &tex.id);
+        glBindTexture(GL_TEXTURE_2D, tex.id);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, g_winWidth, g_winHeight, 0, GL_RGBA, GL_FLOAT, nullptr);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        tex.width = g_winWidth;
+        tex.height = g_winHeight;
+    }
+
+    Texture emptyTex;
+    emptyTex.createEmpty();
+
     g_start = std::chrono::steady_clock::now();
     float lastTimeVal = 0.0f;
     double lastFPSTime = glfwGetTime();
@@ -571,8 +642,17 @@ int main() {
         int width = g_winWidth;
         int height = g_winHeight;
 
-        std::vector<Texture*> bufferOutputs(programs.size(), &emptyTex);
+        // Resize prevFrameTextures if needed
+        for (auto& tex : prevFrameTextures) {
+            if (tex.width != width || tex.height != height) {
+                glBindTexture(GL_TEXTURE_2D, tex.id);
+                glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, width, height, 0, GL_RGBA, GL_FLOAT, nullptr);
+                tex.width = width;
+                tex.height = height;
+            }
+        }
 
+        // Render each pass
         for (size_t i = 0; i < programs.size(); ++i) {
             programs[i].use();
             glUniform3f(programs[i].getUniformLocation("iResolution"), (float)width, (float)height, 1.0f);
@@ -583,16 +663,18 @@ int main() {
                 (float)g_mouseX, (float)(height - g_mouseY), (float)g_mouseDown, 0.0f);
 
             auto& configForThis = channelConfig[i];
-            Framebuffer* targetFbo = nullptr;
 
             for (int c = 0; c < 4; ++c) {
                 const ChannelInput& input = configForThis[c];
                 std::string name = "iChannel" + std::to_string(c);
                 GLint loc = programs[i].getUniformLocation(name);
                 if (loc == -1) continue;
+
                 Texture* texToBind = &emptyTex;
+
                 switch (input.type) {
-                case ChannelInput::NONE: break;
+                case ChannelInput::NONE:
+                    break;
                 case ChannelInput::IMAGE_GLOBAL:
                     if (input.imageIndex >= 0 && input.imageIndex < (int)g_globalImages.size()) {
                         std::string imgPath = g_globalImages[input.imageIndex].string();
@@ -600,13 +682,13 @@ int main() {
                     }
                     break;
                 case ChannelInput::BUFFER:
-                    if (input.bufferIndex == (int)i) texToBind = bufferOutputs[i];
-                    else if (input.bufferIndex >= 0 && input.bufferIndex < (int)bufferOutputs.size())
-                        texToBind = bufferOutputs[input.bufferIndex];
+                    texToBind = &prevFrameTextures[input.bufferIndex]; // Always read from previous frame
                     break;
                 }
+
                 texToBind->bind(c);
                 glUniform1i(loc, c);
+
                 std::string resName = "iChannelResolution[" + std::to_string(c) + "]";
                 GLint resLoc = programs[i].getUniformLocation(resName);
                 if (resLoc != -1) {
@@ -614,13 +696,13 @@ int main() {
                 }
             }
 
+            // Set render target
             if (i == programs.size() - 1) {
                 Framebuffer::unbind();
                 glViewport(0, 0, width, height);
             }
             else {
-                targetFbo = &fbos[i];
-                targetFbo->bind();
+                fbos[i].bind();
                 glViewport(0, 0, width, height);
             }
 
@@ -629,8 +711,14 @@ int main() {
             vao.bind();
             glDrawArrays(GL_TRIANGLES, 0, 6);
             VertexArray::unbind();
+        }
 
-            if (targetFbo) bufferOutputs[i] = &targetFbo->colorTex;
+        // === Copy current FBO outputs to prevFrameTextures using glCopyTexSubImage2D ===
+        for (size_t i = 0; i < fbos.size(); ++i) {
+            glBindTexture(GL_TEXTURE_2D, prevFrameTextures[i].id);
+            glBindFramebuffer(GL_READ_FRAMEBUFFER, fbos[i].fbo);
+            glCopyTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 0, 0, width, height);
+            glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
         }
 
         glfwSwapBuffers(window);
